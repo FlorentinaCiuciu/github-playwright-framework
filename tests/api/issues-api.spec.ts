@@ -1,94 +1,88 @@
-import { test } from '../../setup/base.fixture'
+import { test } from '../../fixtures/base.fixture'
 import { expect } from '@playwright/test'
-import { randomNumber, validateSchema } from '../../utils'
+import { validateSchema } from '../../utils/helpers'
 import  issuesListSchema  from '../../test-data/api-schemas/issues-list.json'
 import  issueCreatedSchema  from '../../test-data/api-schemas/issue-create.json'
 import issueDetailsSchema from '../../test-data/api-schemas/issue-details.json'
 import issueUpdatedSchema from '../../test-data/api-schemas/issue-update.json'
+import { invalidIssueBody, validIssueBody } from '../../test-data/data/issue-data'
+import { IssueStates } from '../../libs/common/enums'
+import { createIssueAPIErrorMessages } from '../../test-data/data/text-resources'
 
 test.describe('Issue creation and update', async () => {
   let newIssueId: number
-  let createResponse: { status, json }
-  let newIssueBody: { title: string, body: string }
-  test.beforeEach(async({issuesApi}) => {  
-    newIssueBody = {
-      title: `Found a bug - ${randomNumber()}`,
-      body: 'This is the issue body.',
-    }
+  let createResponse: { status:number, json:any }
+  test.beforeEach(async({issuesApi, logger}) => {  
     // Create a new issue
-    createResponse = await issuesApi.createIssue(newIssueBody)
+    createResponse = await issuesApi.createIssue(validIssueBody)
     newIssueId = createResponse.json.number
-    console.log('Created issue id:', newIssueId)
+    logger.log(`Created issue id: ${newIssueId}`)
   })
-  test('API - Validate issue creation', async ({ issuesApi }) => {
+  test('@smoke API - Validate issue creation', async ({ issuesApi }) => {
     // Validate api response status and body
-    expect(createResponse.status).toBe(201)
-    expect(validateSchema(issueCreatedSchema, createResponse.json).valid).toBe(true)
+    expect.soft(createResponse.status).toBe(201)
+    expect.soft(validateSchema(issueCreatedSchema, createResponse.json).valid).toBe(true)
 
     // Get issue details
     const issueDetailsResponse = await issuesApi.getIssueDetails(newIssueId)
     // Validate api response status and body
-    expect(issueDetailsResponse.status).toBe(200)
-    expect(validateSchema(issueDetailsSchema, issueDetailsResponse.json).valid).toBe(true)
+    expect.soft(issueDetailsResponse.status).toBe(200)
+    expect.soft(validateSchema(issueDetailsSchema, issueDetailsResponse.json).valid).toBe(true)
     
     // Validate issue was created with right title and body
-    expect(issueDetailsResponse.json.title).toEqual(newIssueBody.title)
-    expect(issueDetailsResponse.json.body).toEqual(newIssueBody.body)
+    expect.soft(issueDetailsResponse.json.title).toEqual(validIssueBody.title)
+    expect.soft(issueDetailsResponse.json.body).toEqual(validIssueBody.body)
 
   })
-  test('API - Validate issue state update', async ({ issuesApi }) => {
+  test('@smoke API - Validate issue state update', async ({ issuesApi }) => {
+    const expectedIssueState = IssueStates.CLOSED.toLowerCase()
     // Update issue to state = closed
-    const updateResponse = await issuesApi.updateIssue(newIssueId, { state: 'closed'})
+    const updateResponse = await issuesApi.updateIssue(newIssueId, { state: expectedIssueState})
     
     // Validate api response status and body
-    expect(updateResponse.status).toBe(200)
-    expect(validateSchema(issueUpdatedSchema, updateResponse.json).valid).toBe(true)
-    expect(updateResponse.json.state).toEqual('closed')
+    expect.soft(updateResponse.status).toBe(200)
+    expect.soft(validateSchema(issueUpdatedSchema, updateResponse.json).valid).toBe(true)
+    expect.soft(updateResponse.json.state).toEqual(expectedIssueState)
 
     // Get issue details
     const issueDetailsResponse = await issuesApi.getIssueDetails(newIssueId)
     // Validate status was updated
-    expect(issueDetailsResponse.status).toBe(200)
-    expect(issueDetailsResponse.json.state).toEqual('closed')
+    expect.soft(issueDetailsResponse.status).toBe(200)
+    expect.soft(issueDetailsResponse.json.state).toEqual(expectedIssueState)
   })
 })
 
-test('API - Validate issue list endpoint', async({issuesApi}) => {
+test('@regression API - Validate issue list endpoint', async({issuesApi, logger}) => {
 // Get all issues
 const issuesListResponse = await issuesApi.getIssuesList()
-console.log('Issues list number: ', issuesListResponse.json.length)
+logger.log(`Issues list number: ${issuesListResponse.json.length}`)
 // Validate api response status and body
-expect(issuesListResponse.status).toBe(200)
-expect(validateSchema(issuesListSchema, issuesListResponse.json).valid).toBe(true)
-// TODO: maybe validate something in the list - number of items, properties, etc.
+expect.soft(issuesListResponse.status).toBe(200)
+expect.soft(validateSchema(issuesListSchema, issuesListResponse.json).valid).toBe(true)
 })
 
-// Note: this list is not exhaustive, it's just an example on how negative cases can be tested
 const testCases = [
   { usecase: 'Missing required title',
-    testData: { body: 'test'},
+    testData: invalidIssueBody.noTitle,
     expectedStatus: 422,
-    expectedMessage: 'Invalid request.\n\n"title" wasn\'t supplied.'
+    expectedMessage: createIssueAPIErrorMessages.noTitle
  },
  {  usecase: 'Invalid assignee in payload',
-    testData: {
-      "title": "Found a bug",
-      "assignees": 123
-  },
+    testData: invalidIssueBody.invalidAssignee,
     expectedStatus: 422,
-    expectedMessage: 'Invalid request.\n\nFor \'properties/assignees\', 123 is not an array.'
+    expectedMessage: createIssueAPIErrorMessages.invalidAssignee
 }]
 testCases.forEach(({usecase, testData, expectedStatus, expectedMessage}) => {
-  test(`API - Issue creation payload validations - ${usecase}`, async({issuesApi}) => {
+  test(`@regression API - Issue creation payload validations - ${usecase}`, async({issuesApi}) => {
     const createResponse = await issuesApi.createIssue(testData)
-    expect(createResponse.status).toBe(expectedStatus)
-    expect(createResponse.json.message).toBe(expectedMessage)
+    expect.soft(createResponse.status).toBe(expectedStatus)
+    expect.soft(createResponse.json.message).toBe(expectedMessage)
   })
 })
 
-test(`API - Issue creation - invalid endpoint path`, async({issuesApi}) => {
+test(`@regression API - Issue creation - invalid endpoint path`, async({issuesApi}) => {
   issuesApi.endpointPath +='/test'
   const createResponse = await issuesApi.createIssue({title: 'test test'})
-  expect(createResponse.status).toBe(404)
-  expect(createResponse.json.message).toBe('Not Found')
+  expect.soft(createResponse.status).toBe(404)
+  expect.soft(createResponse.json.message).toBe(createIssueAPIErrorMessages.invalidPath)
 })

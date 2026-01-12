@@ -1,14 +1,19 @@
 import { Locator, Page } from '@playwright/test'
 import { IssueDetailsPage } from './issue-details.page'
+import Logger from '../common/logger'
 
 export class IssueCreatePage {
     page: Page
+    logger: Logger
+    createIssuesContainer: Locator
     titleInput: Locator
     bodyInput: Locator
     createBtn: Locator
     titleValidation: Locator
-    constructor(page: Page) {
+    constructor(page: Page, logger: Logger) {
         this.page = page
+        this.logger = logger
+        this.createIssuesContainer = this.page.getByTestId('issue-create-pane-container')
         this.titleInput = this.page.getByPlaceholder('Title')
         this.bodyInput = this.page.getByPlaceholder('Type your description here…')
         this.createBtn = this.page.getByTestId('create-issue-button')
@@ -22,8 +27,6 @@ export class IssueCreatePage {
             await this.bodyInput.fill(issueDetails.body)
         }
         await this.createBtn.click()
-        // TODO: wait for some explicit event to ensure issue is created otherwise won't be displayed in issues list
-        await this.page.waitForTimeout(3000)
-        return new IssueDetailsPage(this.page)
+        return new IssueDetailsPage(this.page, this.logger)
     }
 }

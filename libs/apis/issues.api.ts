@@ -1,6 +1,6 @@
-import { APIRequestContext, APIResponse } from "playwright-core"
+import { APIRequestContext } from "playwright-core"
 import { API_BASE_URL } from "../../playwright.config"
-import { parseApiResponse } from "../../utils"
+import { parseApiResponse } from "../../utils/helpers"
 
 export class IssuesEndpoint {
     request: APIRequestContext
