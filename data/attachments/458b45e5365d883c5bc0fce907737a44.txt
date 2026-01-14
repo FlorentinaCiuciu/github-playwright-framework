@@ -1,0 +1,1 @@
+[@smoke API - Validate issue creation] Created issue id: 279
