@@ -1,1 +1,0 @@
-[@regression API - Validate issue list endpoint] Issues list number: 30
